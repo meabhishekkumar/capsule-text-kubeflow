@@ -6,8 +6,8 @@ Presented at O'Reilly Artificial Intelligence Conference **"Industrialized capsu
 
 **Highlights of the session :**
 
-- Overview of Capsule Networks
-- Capsule Networks for text classification
+- Overview of Capsule Networks ( What and Why )
+- Capsule Networks for text classification 
 - How to leverage Kubeflow for Industrialization 
     - Setup Kubeflow on GCP with Multi GPU Support enabled
     - Use Tensorflow to create CaspNet Estimator [ from Tensorflow Keras Model to Tensorflow Estimator ]
@@ -93,7 +93,7 @@ gcloud container node-pools create accel \
   --project ${PROJECT_ID} \
   --zone ${ZONE} \
   --cluster ${DEPLOYMENT_NAME} \
-  --accelerator type=nvidia-tesla-k80,count=4 \
+  --accelerator type=nvidia-tesla-k80,count=2 \
   --num-nodes 1 \
   --machine-type n1-highmem-8 \
   --disk-size=220 \
@@ -270,20 +270,22 @@ We will be using [Katib](https://www.kubeflow.org/docs/components/hyperparameter
 ```
 // try different hyper-parameter tuning 
 
-ks param set katib name "katib-capsule-A-1"
+ks param set katib name "katib-capsule-a-1"
 ks param set katib image $TRAIN_PATH
 ks param set katib modelType "capsule-A"
 ks param set katib numEpochs 15
 ks apply default -c katib 
 kubectl get studyjob
-kubectl describe studyjobs katib-capsule-1
+kubectl describe studyjobs katib-capsule-a-1
 
 // CNN
-ks param set katib name "katib-capsule-CNN-1"
+ks param set katib name "katib-capsule-cnn-1"
 ks param set katib image $TRAIN_PATH
 ks param set katib modelType "CNN"
 ks param set katib numEpochs 5
+ks param set katib algorithm "bayesianoptimization"
+ks apply default -c katib 
 kubectl get studyjob
-kubectl describe studyjobs katib-capsule-CNN-1
+kubectl describe studyjobs katib-capsule-cnn-1
 ```
 

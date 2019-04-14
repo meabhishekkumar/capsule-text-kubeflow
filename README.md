@@ -10,10 +10,10 @@ Presented at O'Reilly Artificial Intelligence Conference **"Industrialized capsu
 - Capsule Networks for text classification
 - How to leverage Kubeflow for Industrialization 
     - Setup Kubeflow on GCP with Multi GPU Support enabled
-    - Use Tensorflow to create CaspNet Estimator
-    - Distributed Multi-GPU training of CapsNet 
-    - Use TF-Job for distributed training on K8S cluster
-    - Use Katib for highly scalable hyper-parameter tuning 
+    - Use Tensorflow to create CaspNet Estimator [ from Tensorflow Keras Model to Tensorflow Estimator ]
+    - Distributed Multi-GPU training of CapsNet [ using Tensorflow MirroredStrategy ]
+    - Use TF-Job for distributed training on K8S cluster [ for Single-Class & Multi-Class Classification with Multiple Neural Network Architectures ]
+    - Use Katib for highly scalable hyper-parameter tuning [ with Random Search, Grid Search and Bayesian Search for hyper-parameters]
 - Challenges and Future Work
 
 #### References and Credits 

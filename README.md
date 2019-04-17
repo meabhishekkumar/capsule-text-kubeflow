@@ -249,6 +249,8 @@ ks param set train image $TRAIN_PATH
 ks param set train name "train-capsnet-text-capsule-b-1"
 ks param set train modelType "capsule-B"
 ks param set train learningRate 0.001
+ks param set train numPs 1
+ks param set train numWorkers 2 
 ks apply default -c train
 kubectl describe tfjob
 kubectl logs -f train-capsnet-text-capsule-b-1-chief-0
@@ -283,7 +285,7 @@ ks param set katib name "katib-capsule-cnn-1"
 ks param set katib image $TRAIN_PATH
 ks param set katib modelType "CNN"
 ks param set katib numEpochs 5
-ks param set katib algorithm "bayesianoptimization"
+ks param set katib algorithm "grid"
 ks apply default -c katib 
 kubectl get studyjob
 kubectl describe studyjobs katib-capsule-cnn-1

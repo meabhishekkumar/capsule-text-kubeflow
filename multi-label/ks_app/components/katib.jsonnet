@@ -24,7 +24,7 @@ local studyjob = {
     owner: "crd",
     optimizationtype: "maximize",
     objectivevaluename: "val-accuracy",
-    optimizationgoal: 0.97,
+    optimizationgoal: 0.99,
     requestcount: 3,
     metricsnames: ["val-loss","exact-match-rate","precision","recall","f1-score"],
     parameterconfigs: [
@@ -83,7 +83,7 @@ local studyjob = {
     },
     suggestionSpec: {
       suggestionAlgorithm: params.algorithm,
-      requestNumber: 1,
+      requestNumber: 3,
     },
   },
 };

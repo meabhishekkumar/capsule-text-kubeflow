@@ -147,10 +147,11 @@ wget --no-check-certificate \
 
 mv kustomize_2.0.3_darwin_amd64 kustomize
 //add ks command to path
-PATH=$PATH:$(pwd)/$KS_VER
+
 chmod +x kustomize
 export PATH=${PATH}:$(pwd)
-
+//check kustomize version and ensure it is 2.0.3
+kustomize version
 
 ```
 
@@ -159,7 +160,7 @@ export PATH=${PATH}:$(pwd)
 1. Build Image
 
 ```
-cd $WORKDIR/train-image/
+cd $WORKING_DIR/train-image/
 // sample : capsnet-kubeflow:v1
 export TRAIN_IMAGE_NAME=<YOUR_TRAIN_IMAGE_NAME>
 //set the path on GCR you want to push the image to
@@ -167,7 +168,7 @@ export TRAIN_PATH=gcr.io/$PROJECT_ID/$TRAIN_IMAGE_NAME
 
 //build the tensorflow model into a container
 //container is tagged with its eventual path on GCR, but it stays local for now
-docker build $WORKING_DIR/train -t $TRAIN_PATH -f $WORKING_DIR/train/Dockerfile.model
+docker build $WORKING_DIR/train-image -t $TRAIN_PATH -f $WORKING_DIR/train-image/Dockerfile.model
 ```
 2. Check locally
 
@@ -186,6 +187,12 @@ docker push $TRAIN_PATH
 ```
 
 ### 6. Training on Kubeflow 
+
+move to training folder
+
+```
+cd $WORKING_DIR/training/GCS
+```
 
 1. check service account access 
 ```
@@ -206,7 +213,7 @@ For **capsule A**, set the modelType to **"capsule-A"** , for **capusle-B** set 
 ```
 // set the parameters for this job : CNN
 kustomize edit add configmap capsule-map-training --from-literal=modelType=CNN
-kustomize edit add configmap capsule-map-training --from-literal=name=train-capsnet-text-CNN-1
+kustomize edit add configmap capsule-map-training --from-literal=name=train-capsnet-text-cnn-1
 kustomize edit set image training-image=$TRAIN_PATH
 kustomize edit add configmap capsule-map-training --from-literal=learningRate=0.0005
 kustomize edit add configmap capsule-map-training --from-literal=batchSize=25
@@ -225,14 +232,16 @@ kustomize edit add configmap capsule-map-training --from-literal=GOOGLE_APPLICAT
 ```
 kustomize build . |kubectl apply -f -
 kubectl describe tfjob
-kubectl logs -f train-capsnet-text-CNN-1-chief-0
+kubectl logs -f train-capsnet-text-cnn-1-chief-0
 ```
 
 
 ### 7. Hyper-Parameter Tuning using Katib 
 
 We will be using [Katib](https://www.kubeflow.org/docs/components/hyperparameter/) for hyper-parameter tuning.
+For testing katib you can try out sample example. Make changes in the yaml file as per your need.
 
 ```
+kubectl create -f https://raw.githubusercontent.com/kubeflow/katib/master/examples/v1alpha2/random-example.yaml
 
 ```

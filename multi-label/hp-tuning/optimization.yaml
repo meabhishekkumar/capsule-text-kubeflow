@@ -1,0 +1,57 @@
+apiVersion: "kubeflow.org/v1alpha2"
+kind: Experiment
+metadata:
+  namespace: kubeflow
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: bayesianoptimization-example
+spec:
+  objective:
+    type: maximize
+    goal: 0.99
+    objectiveMetricName: val-accuracy
+    additionalMetricNames:
+      - exact-match-rate
+      - val-loss
+      - precision
+      - recall
+      - f1-score
+
+  algorithm:
+    algorithmName: bayesianoptimization
+    algorithmSettings:
+      - name: "random_state"
+        value: "10"
+  parallelTrialCount: 3
+  maxTrialCount: 12
+  maxFailedTrialCount: 3
+  parameters:
+    - name: --tf-learning-rate
+      parameterType: double
+      feasibleSpace:
+        min: "0.001"
+        max: "0.003"
+  trialTemplate:
+    goTemplate:
+        rawTemplate: |-
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: {{.Trial}}
+            namespace: {{.NameSpace}}
+          spec:
+            template:
+              spec:
+                containers:
+                - name: {{.Trial}}
+                  image: us.gcr.io/kubeflow-ps-learn/ak-kubeflow-train:v1
+                  command:
+                  - "/usr/bin/python"
+                  - "main.py"
+                  - "--batch-size=64"
+                  {{- with .HyperParameters}}
+                  {{- range .}}
+                  - "{{.Name}}={{.Value}}"
+                  {{- end}}
+                  {{- end}}
+                restartPolicy: Never

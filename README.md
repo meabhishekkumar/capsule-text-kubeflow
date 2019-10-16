@@ -64,7 +64,7 @@ gcloud config set project ${PROJECT_ID}
 gcloud config set compute/zone ${ZONE}
 ```
 
-3. Use one-click deploy interface by GCP to setup kubeflow using https://deploy.kubeflow.cloud/#/ . Just fill Deployment Name and Project ID and select appropriate GCP Zone. You can "Skip Endpoint Later" for IAP. 
+3. Use one-click deploy interface by GCP to setup kubeflow using https://deploy.kubeflow.cloud/#/ . For more details you can refer to official documentation[https://www.kubeflow.org/docs/gke/deploy/deploy-ui/]. 
 
 one the deployment is completed. You can connect to the cluster. 
 
@@ -93,7 +93,7 @@ gcloud container node-pools create accel \
   --project ${PROJECT_ID} \
   --zone ${ZONE} \
   --cluster ${DEPLOYMENT_NAME} \
-  --accelerator type=nvidia-tesla-k80,count=2 \
+  --accelerator type=nvidia-tesla-k80,count=1 \
   --num-nodes 1 \
   --machine-type n1-highmem-8 \
   --disk-size=220 \
@@ -124,68 +124,42 @@ cd jupyter-image && make push PROJECT_ID=$PROJECT_ID && cd ..
 
 6. Upload the notebook available `capsnet-text-classification.ipynb` in **notebooks** subfolder inside the code directory.
 
-### 4. Setting up KSONNET for Kubeflow
+### 4. Setting up Kustomize for Kubeflow
 
-1. Install KSONNET
+1. Install Kustomize
 
 Set current working directory 
 
 ```
 cd multi-label
 WORKING_DIR=$(pwd)
+
 ```
 
 ```
-// download ksonnet for linux (including Cloud Shell)
-// for macOS, use ks_0.13.0_darwin_amd64 for Linux use : ks_0.13.0_linux_amd64
-KS_VER=ks_0.13.0_darwin_amd64
+// download kustomize for linux (including Cloud Shell)
+// for macOS, use kustomize_2.0.3_darwin_amd64  for Linux use : kustomize_2.0.3_linux_amd64 
+KS_VER=kustomize_2.0.3_darwin_amd64
 
 //download tar of ksonnet
 wget --no-check-certificate \
-    https://github.com/ksonnet/ksonnet/releases/download/v0.13.0/$KS_VER.tar.gz
+    https://github.com/kubernetes-sigs/kustomize/releases/download/v2.0.3/$KS_VER
 
-//unpack file
-tar -xvf $KS_VER.tar.gz
-
+mv kustomize_2.0.3_darwin_amd64 kustomize
 //add ks command to path
 PATH=$PATH:$(pwd)/$KS_VER
+chmod +x kustomize
+export PATH=${PATH}:$(pwd)
+
 
 ```
-
-2. Create Ksonnet Project 
-
-```
-KS_NAME=my_ksonnet_app
-ks init $KS_NAME
-cd $KS_NAME
-```
-
-list environment and component 
-
-```
-ks env list
-ks component list
-```
-Copy components 
-
-```
-cp $WORKING_DIR/ks_app/components/* $WORKING_DIR/$KS_NAME/components
-ks component list
-```
-
-add kubeflow to resources 
-```
-VERSION=v0.4.1
-ks registry add kubeflow \
-    github.com/kubeflow/kubeflow/tree/${VERSION}/kubeflow
-ks pkg install kubeflow/tf-serving@${VERSION}
-```
-
 
 ### 5. Build Train Image 
 
 1. Build Image
+
 ```
+cd $WORKDIR/train-image/
 // sample : capsnet-kubeflow:v1
 export TRAIN_IMAGE_NAME=<YOUR_TRAIN_IMAGE_NAME>
 //set the path on GCR you want to push the image to
@@ -224,70 +198,41 @@ gcloud --project=$PROJECT_ID iam service-accounts list | grep $DEPLOYMENT_NAME
 kubectl describe secret user-gcp-sa
 ```
 
-3. Set Google Application Credentials 
-
-```
-ks param set train secret user-gcp-sa=/var/secrets
-ks param set train envVariables \
-    GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/user-gcp-sa.json
-```
 
 4. Train on the cluster
 
-```
-// set the parameters for this job : Capsule A
-ks param set train image $TRAIN_PATH
-ks param set train name "train-capsnet-text-capsule-a-1"
-ks param set train modelType "capsule-A"
-ks param set train learningRate 0.001
-ks apply default -c train
-kubectl describe tfjob
-kubectl logs -f train-capsnet-text-capsule-a-1-chief-0
-
-// set the parameters for this job : Capsule B
-ks param set train image $TRAIN_PATH
-ks param set train name "train-capsnet-text-capsule-b-1"
-ks param set train modelType "capsule-B"
-ks param set train learningRate 0.001
-ks param set train numPs 1
-ks param set train numWorkers 2 
-ks apply default -c train
-kubectl describe tfjob
-kubectl logs -f train-capsnet-text-capsule-b-1-chief-0
-
-//set the parameters for this job : CNN
-ks param set train image $TRAIN_PATH
-ks param set train name "train-capsnet-text-cnn-1"
-ks param set train modelType "CNN"
-ks param set train learningRate 0.0005
-ks apply default -c train
-kubectl describe tfjob
-kubectl logs -f train-capsnet-text-cnn-1-chief-0
+For **capsule A**, set the modelType to **"capsule-A"** , for **capusle-B** set the **modelType** to **"capsule-B"** and change the **name** accordingly.
 
 ```
+// set the parameters for this job : CNN
+kustomize edit add configmap capsule-map-training --from-literal=modelType=CNN
+kustomize edit add configmap capsule-map-training --from-literal=name=train-capsnet-text-CNN-1
+kustomize edit set image training-image=$TRAIN_PATH
+kustomize edit add configmap capsule-map-training --from-literal=learningRate=0.0005
+kustomize edit add configmap capsule-map-training --from-literal=batchSize=25
+kustomize edit add configmap capsule-map-training --from-literal=numEpochs=5
+```
+
+3. Set Google Application Credentials 
+
+```
+// set credentials
+kustomize edit add configmap capsule-map-training --from-literal=secretName=user-gcp-sa
+kustomize edit add configmap capsule-map-training --from-literal=secretMountPath=/var/secrets
+kustomize edit add configmap capsule-map-training --from-literal=GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/user-gcp-sa.json
+```
+4. Train at Scale 
+```
+kustomize build . |kubectl apply -f -
+kubectl describe tfjob
+kubectl logs -f train-capsnet-text-CNN-1-chief-0
+```
+
 
 ### 7. Hyper-Parameter Tuning using Katib 
 
 We will be using [Katib](https://www.kubeflow.org/docs/components/hyperparameter/) for hyper-parameter tuning.
-```
-// try different hyper-parameter tuning 
 
-ks param set katib name "katib-capsule-a-1"
-ks param set katib image $TRAIN_PATH
-ks param set katib modelType "capsule-A"
-ks param set katib numEpochs 15
-ks apply default -c katib 
-kubectl get studyjob
-kubectl describe studyjobs katib-capsule-a-1
-
-// CNN
-ks param set katib name "katib-capsule-cnn-1"
-ks param set katib image $TRAIN_PATH
-ks param set katib modelType "CNN"
-ks param set katib numEpochs 5
-ks param set katib algorithm "grid"
-ks apply default -c katib 
-kubectl get studyjob
-kubectl describe studyjobs katib-capsule-cnn-1
 ```
 
+```
